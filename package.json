@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "postinstall": "pip install yt-dlp --break-system-packages 2>/dev/null || pip3 install yt-dlp --break-system-packages 2>/dev/null || true"
   },
   "type": "commonjs",
   "dependencies": {
