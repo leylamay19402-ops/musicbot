@@ -107,11 +107,21 @@ bot.on("audio", async (ctx) => {
   const artist = audio.performer || '';
   const trackId = `tg_${audio.file_id.slice(-12)}`;
 
+  // Пробуем взять обложку из миниатюры аудио
+  let thumbnail = '';
+  if (audio.thumb || audio.thumbnail) {
+    const thumbFileId = (audio.thumb || audio.thumbnail).file_id;
+    try {
+      const fileInfo = await ctx.telegram.getFile(thumbFileId);
+      thumbnail = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.file_path}`;
+    } catch {}
+  }
+
   const track = {
     id: trackId,
     title: rawTitle,
     channel: artist,
-    thumbnail: '',
+    thumbnail,
     tgFileId: audio.file_id,
     source: 'telegram'
   };
@@ -119,10 +129,15 @@ bot.on("audio", async (ctx) => {
   pendingTracks.set(userId, { track });
   addTrackToLibrary(userId, track);
 
+  const hasCover = thumbnail ? '✅ Обложка найдена!' : 'Хочешь добавить обложку? Отправь фото, или /skip';
+
   await ctx.reply(
-    `✅ Трек добавлен в библиотеку!\n\n🎵 <b>${rawTitle}</b>${artist ? `\n👤 ${artist}` : ''}\n\nХочешь добавить обложку? Отправь фото, или /skip`,
+    `✅ Трек добавлен в библиотеку!\n\n🎵 <b>${rawTitle}</b>${artist ? `\n👤 ${artist}` : ''}\n\n${hasCover}`,
     { parse_mode: "HTML", ...mainKeyboard() }
   );
+
+  // Если обложка уже есть — не ждём фото
+  if (thumbnail) pendingTracks.delete(userId);
 });
 
 bot.on("photo", async (ctx) => {
