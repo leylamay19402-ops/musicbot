@@ -223,22 +223,14 @@ bot.on("text", async (ctx) => {
   }
 });
 
-const WEBHOOK_DOMAIN = process.env.WEB_APP_URL || '';
-const PORT_BOT = process.env.PORT || 8080;
-
-if (WEBHOOK_DOMAIN) {
-  bot.launch({
-    webhook: { domain: WEBHOOK_DOMAIN, port: parseInt(PORT_BOT), path: '/webhook' }
-  }).then(() => {
-    console.log("✅ Бот запущен на webhook!");
-  }).catch(err => {
-    console.error("❌ Ошибка запуска бота:", err.message);
-  });
-} else {
-  bot.launch({ dropPendingUpdates: true }).then(() => {
-    console.log("✅ Бот запущен (polling)!");
-  });
-}
+// Бот запускается через polling — сервер отдельно в server.js
+bot.launch({ dropPendingUpdates: true }).then(() => {
+  console.log("✅ Бот запущен!");
+}).catch(err => {
+  console.error("❌ Ошибка запуска бота:", err.message);
+});
 
 process.once("SIGINT", () => { bot.stop("SIGINT"); });
 process.once("SIGTERM", () => { bot.stop("SIGTERM"); });
+
+module.exports = { bot };
