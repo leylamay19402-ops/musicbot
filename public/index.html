@@ -890,7 +890,22 @@ function switchTab(tab) {
   document.getElementById('tab-library').classList.toggle('active', tab === 'library');
   document.getElementById('view-search').style.display = tab === 'search' ? 'block' : 'none';
   document.getElementById('view-library').style.display = tab === 'library' ? 'block' : 'none';
-  if (tab === 'library') updateLibraryUI();
+  if (tab === 'library') {
+    if (tgUserId && !IS_LOCAL) {
+      fetch('/api/library?userId=' + tgUserId)
+        .then(r => r.json())
+        .then(serverLib => {
+          if (Array.isArray(serverLib)) {
+            library = serverLib;
+            localStorage.setItem('music_lib', JSON.stringify(library));
+          }
+          updateLibraryUI();
+        })
+        .catch(() => updateLibraryUI());
+    } else {
+      updateLibraryUI();
+    }
+  }
 }
 
 // ─── UTILS ────────────────────────────────────────────────────
