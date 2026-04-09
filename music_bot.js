@@ -96,43 +96,23 @@ bot.hears("📚 Библиотека", async (ctx) => {
     return ctx.reply("📚 Библиотека пуста.\n\nОткрой плеер и нажми ❤️ на треке чтобы добавить.", mainKeyboard());
   }
 
-  await ctx.reply(`📚 <b>Библиотека</b> (${tracks.length} треков):\nНажми на трек чтобы послушать:`, {
-    parse_mode: "HTML",
-    ...Markup.inlineKeyboard(
-      tracks.map((t, i) => [
-        Markup.button.callback(`${i + 1}. ${t.title}${t.channel ? ' — ' + t.channel : ''}`, `play_${i}`)
-      ])
-    )
-  });
-});
+  await ctx.reply(`📚 Библиотека (${tracks.length} треков):`, mainKeyboard());
 
-// ─── Воспроизведение трека из библиотеки ─────────────────────
-bot.action(/^play_(\d+)$/, async (ctx) => {
-  await ctx.answerCbQuery();
-  const idx = parseInt(ctx.match[1]);
-  const userId = ctx.from.id;
-  const tracks = getUserLibrary(userId);
-
-  if (!tracks[idx]) return ctx.reply("❌ Трек не найден.");
-
-  const track = tracks[idx];
-
-  try {
-    if (track.source === 'telegram' && track.tgFileId) {
-      // Пересылаем аудио файл из Telegram
-      await ctx.replyWithAudio(track.tgFileId, {
-        caption: `🎵 ${track.title}${track.channel ? '\n👤 ' + track.channel : ''}`,
-        ...mainKeyboard()
-      });
-    } else {
-      // YouTube трек — даём ссылку
-      await ctx.reply(
-        `🎵 <b>${track.title}</b>\n👤 ${track.channel || '—'}\n\n🔗 https://youtu.be/${track.id}\n\nОткрой плеер для прослушивания 👇`,
-        { parse_mode: "HTML", ...mainKeyboard() }
-      );
+  for (const track of tracks) {
+    try {
+      if (track.source === 'telegram' && track.tgFileId) {
+        await ctx.replyWithAudio(track.tgFileId, {
+          caption: track.channel ? `👤 ${track.channel}` : undefined
+        });
+      } else {
+        await ctx.reply(
+          `🎵 <b>${track.title}</b>${track.channel ? '\n👤 ' + track.channel : ''}\n🔗 https://youtu.be/${track.id}`,
+          { parse_mode: "HTML" }
+        );
+      }
+    } catch (err) {
+      await ctx.reply(`❌ ${track.title} — не удалось загрузить`);
     }
-  } catch (err) {
-    ctx.reply("❌ Не удалось воспроизвести трек: " + err.message, mainKeyboard());
   }
 });
 
