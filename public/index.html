@@ -708,11 +708,11 @@ async function playTrack(track) {
       if (!data.url) throw new Error('Нет ссылки на аудио');
       audioUrl = data.url;
     } else {
-      // Трек с YouTube — через Invidious
-      const resp = await fetch('/api/stream?id=' + track.id);
-      const data = await resp.json();
-      if (!data.url) throw new Error('Нет ссылки на аудио');
-      audioUrl = data.url;
+      // Трек с YouTube — через YT IFrame API
+      showLoading(false);
+      playYouTube(track.id);
+      setupMediaSession(track);
+      return;
     }
 
     audio.src = audioUrl;
@@ -725,9 +725,57 @@ async function playTrack(track) {
   }
 }
 
+// ─── YouTube IFrame Player ────────────────────────────────────
+let ytPlayer = null;
+let ytReady = false;
+
+const ytTag = document.createElement('script');
+ytTag.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(ytTag);
+
+const ytDiv = document.createElement('div');
+ytDiv.id = 'yt-iframe';
+ytDiv.style.cssText = 'position:fixed;width:0;height:0;opacity:0;pointer-events:none';
+document.body.appendChild(ytDiv);
+
+window.onYouTubeIframeAPIReady = function() {
+  ytReady = true;
+  ytPlayer = new YT.Player('yt-iframe', {
+    height: '0', width: '0',
+    playerVars: { autoplay: 0 },
+    events: {
+      onStateChange: e => {
+        if (e.data === YT.PlayerState.PLAYING) { setPlayState(true); showLoading(false); }
+        if (e.data === YT.PlayerState.PAUSED) setPlayState(false);
+        if (e.data === YT.PlayerState.ENDED) playNext();
+      }
+    }
+  });
+};
+
+function playYouTube(videoId) {
+  if (ytReady && ytPlayer) {
+    ytPlayer.loadVideoById(videoId);
+  } else {
+    // Ждём пока API загрузится
+    const check = setInterval(() => {
+      if (ytReady && ytPlayer) {
+        clearInterval(check);
+        ytPlayer.loadVideoById(videoId);
+      }
+    }, 100);
+  }
+}
+
 function togglePlay() {
-  if (!audio.src) return;
-  if (isPlaying) audio.pause(); else audio.play();
+  if (currentTrack && currentTrack.source !== 'telegram') {
+    // YouTube трек
+    if (!ytPlayer) return;
+    if (isPlaying) ytPlayer.pauseVideo(); else ytPlayer.playVideo();
+  } else {
+    if (!audio.src) return;
+    if (isPlaying) audio.pause(); else audio.play();
+  }
 }
 
 function setPlayState(val) {
