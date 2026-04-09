@@ -274,10 +274,23 @@ bot.on("text", async (ctx) => {
 });
 
 // ─── Запуск ───────────────────────────────────────────────────
-bot.launch().then(() => {
+bot.launch({
+  allowedUpdates: [],
+  dropPendingUpdates: true
+}).then(() => {
   console.log("✅ Бот запущен!");
   console.log(`🌐 Mini App: ${WEB_APP_URL}`);
-  console.log("📚 Синхронизация библиотеки из плеера: ВКЛ");
+}).catch(err => {
+  console.error("❌ Ошибка запуска бота:", err.message);
+  // Если 409 — подождём и попробуем снова
+  if (err.message.includes('409')) {
+    console.log("⏳ Конфликт — жду 5 секунд и перезапускаю...");
+    setTimeout(() => {
+      bot.launch({ dropPendingUpdates: true }).then(() => {
+        console.log("✅ Бот перезапущен!");
+      }).catch(e => console.error("❌ Повторная ошибка:", e.message));
+    }, 5000);
+  }
 });
 
 process.once("SIGINT", () => { console.log("\n🛑 Остановлен"); bot.stop("SIGINT"); });
