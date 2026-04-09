@@ -114,5 +114,31 @@ app.get('/api/library', (req, res) => {
   res.json(db[String(userId)] || []);
 });
 
+// ─── /api/tgfile — проксируем аудио из Telegram ─────────────
+app.get('/api/tgfile', async (req, res) => {
+  const fileId = req.query.id;
+  if (!fileId) return res.status(400).json({ error: 'No file id' });
+
+  const BOT_TOKEN = process.env.BOT_TOKEN;
+  if (!BOT_TOKEN) return res.status(500).json({ error: 'No bot token' });
+
+  try {
+    const infoResp = await new Promise((resolve, reject) => {
+      https.get(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${fileId}`, (r) => {
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => resolve(JSON.parse(d)));
+      }).on('error', reject);
+    });
+
+    if (!infoResp.ok) return res.status(404).json({ error: 'File not found' });
+
+    const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${infoResp.result.file_path}`;
+    res.json({ url: fileUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🌐 Server running on port ${PORT}`));
