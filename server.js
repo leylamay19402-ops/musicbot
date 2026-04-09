@@ -2,6 +2,16 @@ const express = require('express');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
+
+function runCommand(cmd) {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { encoding: 'utf-8', timeout: 30000 }, (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr || err.message));
+      else resolve(stdout.trim());
+    });
+  });
+}
 
 const app = express();
 app.use(express.json());
@@ -10,12 +20,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const YOUTUBE_API_KEY = 'AIzaSyBjJpmGdvt8Ag6-uE-4_v3_ouWQRVvPFAs';
 const DB_FILE = path.join(__dirname, 'library.json');
 
-const INVIDIOUS_HOSTS = [
-  'inv.nadeko.net',
-  'invidious.nerdvpn.de',
-  'iv.melmac.space',
-  'invidious.privacyredirect.com'
-];
+
 
 // ─── Helpers ─────────────────────────────────────────────────
 function loadLibrary() {
@@ -60,24 +65,16 @@ app.get('/api/stream', async (req, res) => {
   const videoId = req.query.id;
   if (!videoId) return res.status(400).json({ error: 'No video id' });
 
-  for (const host of INVIDIOUS_HOSTS) {
-    try {
-      const data = await httpsGet(`https://${host}/api/v1/videos/${videoId}?fields=adaptiveFormats,title`);
-      if (!data.adaptiveFormats) continue;
-
-      const format = data.adaptiveFormats
-        .filter(f => f.type?.startsWith('audio/') && f.url)
-        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-
-      if (!format?.url) continue;
-
-      return res.json({ url: format.url, mimeType: format.type });
-    } catch (err) {
-      console.warn(`Host ${host} failed:`, err.message);
-    }
+  try {
+    const url = await runCommand(
+      `yt-dlp -f "bestaudio" --get-url "https://www.youtube.com/watch?v=${videoId}"`
+    );
+    if (!url) return res.status(404).json({ error: 'No audio stream found' });
+    return res.json({ url, mimeType: 'audio/webm' });
+  } catch (err) {
+    console.error('yt-dlp stream error:', err.message);
+    res.status(500).json({ error: 'Failed to get stream: ' + err.message });
   }
-
-  res.status(404).json({ error: 'No audio stream found' });
 });
 
 // ─── /api/favorite ───────────────────────────────────────────
