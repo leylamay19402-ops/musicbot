@@ -699,11 +699,23 @@ async function playTrack(track) {
   audio.src = '';
 
   try {
-    const resp = await fetch('/api/stream?id=' + track.id);
-    const data = await resp.json();
-    if (!data.url) throw new Error('Нет ссылки на аудио');
+    let audioUrl;
 
-    audio.src = data.url;
+    if (track.source === 'telegram' && track.tgFileId) {
+      // Трек из Telegram — получаем ссылку через /api/tgfile
+      const resp = await fetch('/api/tgfile?id=' + track.tgFileId);
+      const data = await resp.json();
+      if (!data.url) throw new Error('Нет ссылки на аудио');
+      audioUrl = data.url;
+    } else {
+      // Трек с YouTube — через Invidious
+      const resp = await fetch('/api/stream?id=' + track.id);
+      const data = await resp.json();
+      if (!data.url) throw new Error('Нет ссылки на аудио');
+      audioUrl = data.url;
+    }
+
+    audio.src = audioUrl;
     await audio.play();
     setupMediaSession(track);
   } catch (err) {
