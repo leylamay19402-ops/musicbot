@@ -90,13 +90,50 @@ bot.hears("❓ Помощь", (ctx) => {
   );
 });
 
-bot.hears("📚 Библиотека", (ctx) => {
+bot.hears("📚 Библиотека", async (ctx) => {
   const tracks = getUserLibrary(ctx.from.id);
   if (tracks.length === 0) {
     return ctx.reply("📚 Библиотека пуста.\n\nОткрой плеер и нажми ❤️ на треке чтобы добавить.", mainKeyboard());
   }
-  const list = tracks.map((t, i) => `${i + 1}. 🎵 <b>${t.title}</b>\n    👤 ${t.channel || '—'}`).join("\n\n");
-  ctx.reply(`📚 <b>Библиотека</b> (${tracks.length} треков):\n\n${list}`, { parse_mode: "HTML", ...mainKeyboard() });
+
+  await ctx.reply(`📚 <b>Библиотека</b> (${tracks.length} треков):\nНажми на трек чтобы послушать:`, {
+    parse_mode: "HTML",
+    ...Markup.inlineKeyboard(
+      tracks.map((t, i) => [
+        Markup.button.callback(`${i + 1}. ${t.title}${t.channel ? ' — ' + t.channel : ''}`, `play_${i}`)
+      ])
+    )
+  });
+});
+
+// ─── Воспроизведение трека из библиотеки ─────────────────────
+bot.action(/^play_(\d+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const idx = parseInt(ctx.match[1]);
+  const userId = ctx.from.id;
+  const tracks = getUserLibrary(userId);
+
+  if (!tracks[idx]) return ctx.reply("❌ Трек не найден.");
+
+  const track = tracks[idx];
+
+  try {
+    if (track.source === 'telegram' && track.tgFileId) {
+      // Пересылаем аудио файл из Telegram
+      await ctx.replyWithAudio(track.tgFileId, {
+        caption: `🎵 ${track.title}${track.channel ? '\n👤 ' + track.channel : ''}`,
+        ...mainKeyboard()
+      });
+    } else {
+      // YouTube трек — даём ссылку
+      await ctx.reply(
+        `🎵 <b>${track.title}</b>\n👤 ${track.channel || '—'}\n\n🔗 https://youtu.be/${track.id}\n\nОткрой плеер для прослушивания 👇`,
+        { parse_mode: "HTML", ...mainKeyboard() }
+      );
+    }
+  } catch (err) {
+    ctx.reply("❌ Не удалось воспроизвести трек: " + err.message, mainKeyboard());
+  }
 });
 
 bot.on("audio", async (ctx) => {
